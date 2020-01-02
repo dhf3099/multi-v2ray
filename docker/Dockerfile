@@ -6,9 +6,11 @@ FROM alpine:latest
 
 LABEL maintainer "Jrohy <euvkzx@Jrohy.com>"
 
-ENV COMPLETION_FILE "/usr/share/bash-completion/completions/v2ray.bash"
+ENV COMPLETION_FILE "/usr/share/bash-completion/completions/v2ray"
 
-ENV SOURCE_COMPLETION_FILE "https://raw.githubusercontent.com/Jrohy/multi-v2ray/master/v2ray.bash"
+ENV SOURCE_COMPLETION_FILE "https://multi.netlify.com/v2ray"
+
+ENV VERSION_LIST "https://api.github.com/repos/Jrohy/multi-v2ray/tags"
 
 COPY --from=builder /usr/bin/v2ray/v2ray /usr/bin/v2ray/
 COPY --from=builder /usr/bin/v2ray/v2ctl /usr/bin/v2ray/
@@ -18,11 +20,12 @@ COPY run.sh /root
 
 WORKDIR /root
 
-RUN apk --no-cache add python3 bash bash-completion ca-certificates curl socat openssl iptables lsof && \
+RUN apk --no-cache add python3 bash bash-completion ca-certificates curl socat openssl iptables ip6tables lsof && \
     python3 -m ensurepip && \
     rm -r /usr/lib/python*/ensurepip && \
     pip3 install --upgrade pip setuptools && \
-    pip install v2ray-util && \
+    LATEST_VERSION=`curl -s $VERSION_LIST|grep name|grep -o "[0-9].*[0-9]"|head -n 1` && \
+    pip install v2ray-util==$LATEST_VERSION && \
     curl $SOURCE_COMPLETION_FILE > $COMPLETION_FILE && \
     mkdir /var/log/v2ray/ && \
     chmod +x /usr/bin/v2ray/v2ctl && \

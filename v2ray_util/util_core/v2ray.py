@@ -7,7 +7,7 @@ import random
 import subprocess
 import pkg_resources
 from functools import wraps
-from .utils import ColorStr, open_port
+from .utils import ColorStr, open_port, get_ip, is_ipv6
 
 def restart(port_open=False):
     """
@@ -40,7 +40,6 @@ class V2ray:
     def run(command, keyword):
         try:
             subprocess.check_output(command, shell=True)
-            open_port()
             print("{}ing v2ray...".format(keyword))
             time.sleep(2)
             if subprocess.check_output("systemctl is-active v2ray|grep active", shell=True) or keyword == "stop":
@@ -84,6 +83,10 @@ class V2ray:
 
     @staticmethod
     def update():
+        if is_ipv6(get_ip()):
+            print(ColorStr.yellow(_("ipv6 network not support update v2ray online, please manual donwload v2ray to update!")))
+            print(ColorStr.fuchsia(_("download v2ray-linux-xx.zip and run 'bash <(curl -L -s https://install.direct/go.sh) -l v2ray-linux-xx.zip' to update")))
+            return
         subprocess.Popen("curl -L -s https://install.direct/go.sh|bash", shell=True).wait()
 
     @staticmethod
@@ -132,7 +135,11 @@ class V2ray:
             subprocess.call("mkdir -p /etc/v2ray_util && cp -f {} /etc/v2ray_util/".format(pkg_resources.resource_filename(__name__, 'util.cfg')), shell=True)
         if not os.path.exists("/usr/bin/v2ray/v2ray"):
             print(ColorStr.yellow(_("check v2ray no install, auto install v2ray..")))
-            cls.update()
+            if is_ipv6(get_ip()):
+                subprocess.Popen("curl -Ls https://install.direct/go.sh -o temp.sh", shell=True).wait()
+                subprocess.Popen("bash temp.sh --source jsdelivr && rm -f temp.sh", shell=True).wait()
+            else:
+                cls.update()
             cls.new()
 
     @classmethod
@@ -145,4 +152,5 @@ class V2ray:
         subprocess.call("sed -i \"s/cc4f8d5b-967b-4557-a4b6-bde92965bc27/{0}/g\" /etc/v2ray/config.json && sed -i \"s/999999999/{1}/g\" /etc/v2ray/config.json".format(new_uuid, random_port), shell=True)
         from ..config_modify import stream
         stream.StreamModifier().random_kcp()
+        open_port()
         cls.restart()
