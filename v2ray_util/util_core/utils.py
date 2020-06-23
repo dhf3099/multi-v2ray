@@ -102,9 +102,25 @@ def port_is_use(port):
     """
     判断端口是否占用
     """
-    cmd = "lsof -i:" + str(port)
-    result = os.popen(cmd).readlines()
-    return result != []
+    tcp_use, udp_use = False, False
+    s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    u = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    s.settimeout(3)
+    tcp_use = s.connect_ex(('127.0.0.1', int(port))) == 0
+    try:
+        u.bind(('127.0.0.1', int(port)))
+    except:
+        udp_use = True
+    finally:
+        u.close()
+    return tcp_use or udp_use
+
+
+def random_port(start_port, end_port):
+    while True:
+        random_port = random.randint(start_port, end_port)
+        if not port_is_use(random_port):
+            return random_port
 
 def is_email(email):
     """
@@ -178,10 +194,11 @@ def gen_cert(domain):
         if ":" in local_ip:
             if not os.path.exists("/root/.acme.sh/"):
                 os.makedirs("/root/.acme.sh")
-            os.system("curl https://acme-install.netlify.com/acme.sh -o /root/.acme.sh/acme.sh")
+            os.system("curl https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acme.sh")
         else:
             os.system("curl https://get.acme.sh | sh")
 
+    open_port(80)
     get_ssl_cmd = "bash /root/.acme.sh/acme.sh --issue -d " + domain + " --debug --standalone --keylength ec-256"
     if ":" in local_ip:
         get_ssl_cmd = get_ssl_cmd + " --listen-v6"
@@ -227,7 +244,7 @@ def clean_iptables(port):
         for line in output_result:
             os.system(clean_cmd.format(iptable_way, "OUTPUT", str(line)))
 
-def open_port():
+def open_port(openport=-1):
     import platform
     from .loader import Loader
 
@@ -241,19 +258,32 @@ def open_port():
     group_list = profile.group_list
     port_set = set([group.port for group in group_list])
 
-    iptable_way = "iptables" if profile.network == "ipv4" else "ip6tables" 
-    for port in port_set:
-        port_str = str(port)
-        if len(os.popen(check_cmd.format(iptable_way, port_str)).readlines()) > 0:
-            continue
+    iptable_way = "iptables" if profile.network == "ipv4" else "ip6tables"
+    if openport != -1:
+        port_str = str(openport)
         if is_centos8:
             os.system(firewall_open_cmd.format(port_str, port_str))
-            os.system("firewall-cmd --reload >/dev/null 2>&1")
         else:
+            if len(os.popen(check_cmd.format(iptable_way, port_str)).readlines()) > 0:
+                return
             os.system(input_cmd.format(iptable_way, "tcp", port_str))
             os.system(input_cmd.format(iptable_way, "udp", port_str))
             os.system(output_cmd.format(iptable_way, "tcp", port_str))
             os.system(output_cmd.format(iptable_way, "udp", port_str))
+    else:
+        for port in port_set:
+            port_str = str(port)
+            if is_centos8:
+                os.system(firewall_open_cmd.format(port_str, port_str))
+            else:
+                if len(os.popen(check_cmd.format(iptable_way, port_str)).readlines()) > 0:
+                    continue
+                os.system(input_cmd.format(iptable_way, "tcp", port_str))
+                os.system(input_cmd.format(iptable_way, "udp", port_str))
+                os.system(output_cmd.format(iptable_way, "tcp", port_str))
+                os.system(output_cmd.format(iptable_way, "udp", port_str))
+    if is_centos8:
+        os.system("firewall-cmd --reload >/dev/null 2>&1")
 
 def random_email():
     domain = ['163', 'qq', 'sina', '126', 'gmail', 'outlook', 'icloud']

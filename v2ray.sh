@@ -21,7 +21,7 @@ REMOVE=0
 
 CHINESE=0
 
-BASE_SOURCE_PATH="https://multi.netlify.com"
+BASE_SOURCE_PATH="https://multi.netlify.app"
 
 UTIL_PATH="/etc/v2ray_util/util.cfg"
 
@@ -105,7 +105,7 @@ removeV2Ray() {
     crontab crontab.txt >/dev/null 2>&1
     rm -f crontab.txt >/dev/null 2>&1
 
-    if [[ ${OS} =~ 'CentOS' || ${OS} == 'Fedora' ]];then
+    if [[ ${PACKAGE_MANAGER} == 'dnf' || ${PACKAGE_MANAGER} == 'yum' ]];then
         systemctl restart crond >/dev/null 2>&1
     else
         systemctl restart cron >/dev/null 2>&1
@@ -138,82 +138,32 @@ checkSys() {
     #检查是否为Root
     [ $(id -u) != "0" ] && { colorEcho ${RED} "Error: You must be root to run this script"; exit 1; }
 
-    #检查系统信息
-    if [[ -e /etc/redhat-release ]];then
-        if [[ $(cat /etc/redhat-release | grep Fedora) ]];then
-            OS='Fedora'
-            PACKAGE_MANAGER='dnf'
-        elif [[ $(cat /etc/redhat-release |grep "CentOS Linux release 8") ]];then
-            OS='CentOS8'
-            PACKAGE_MANAGER='dnf'
-        else
-            OS='CentOS'
-            PACKAGE_MANAGER='yum'
-        fi
-    elif [[ $(cat /etc/issue | grep Debian) ]];then
-        OS='Debian'
+    if [[ `command -v apt-get` ]];then
         PACKAGE_MANAGER='apt-get'
-    elif [[ $(cat /etc/issue | grep Ubuntu) ]];then
-        OS='Ubuntu'
-        PACKAGE_MANAGER='apt-get'
-    elif [[ $(cat /etc/issue | grep Raspbian) ]];then
-        OS='Raspbian'
-        PACKAGE_MANAGER='apt-get'
+    elif [[ `command -v dnf` ]];then
+        PACKAGE_MANAGER='dnf'
+    elif [[ `command -v yum` ]];then
+        PACKAGE_MANAGER='yum'
     else
-        colorEcho ${RED} "Not support OS, Please reinstall OS and retry!"
+        colorEcho $RED "Not support OS!"
         exit 1
     fi
 }
 
 #安装依赖
 installDependent(){
-    if [[ ${OS} =~ 'CentOS' || ${OS} == 'Fedora' ]];then
-        if [[ ${OS} != 'CentOS8' ]];then
+    if [[ ${PACKAGE_MANAGER} == 'dnf' || ${PACKAGE_MANAGER} == 'yum' ]];then
+        if [[ ${PACKAGE_MANAGER} == 'yum' ]];then
             ${PACKAGE_MANAGER} ntpdate -y
         fi
-        ${PACKAGE_MANAGER} install socat crontabs lsof which -y
+        ${PACKAGE_MANAGER} install socat crontabs which -y
     else
         ${PACKAGE_MANAGER} update
-        ${PACKAGE_MANAGER} install ntpdate socat cron lsof -y
+        ${PACKAGE_MANAGER} install ntpdate socat cron -y
     fi
 
     #install python3 & pip
-    bash <(curl -sL https://python3.netlify.com/install.sh)
-}
-
-#设置定时升级任务
-planUpdate(){
-    [[ $NETWORK == 1 ]] && return
-
-    if [[ $CHINESE == 1 ]];then
-        #计算北京时间早上3点时VPS的实际时间
-        ORIGIN_TIME_ZONE=$(date -R|awk '{printf"%d",$6}')
-        LOCAL_TIME_ZONE=${ORIGIN_TIME_ZONE%00}
-        BEIJING_ZONE=8
-        DIFF_ZONE=$[$BEIJING_ZONE-$LOCAL_TIME_ZONE]
-        LOCAL_TIME=$[$BEIJING_UPDATE_TIME-$DIFF_ZONE]
-        if [ $LOCAL_TIME -lt 0 ];then
-            LOCAL_TIME=$[24+$LOCAL_TIME]
-        elif [ $LOCAL_TIME -ge 24 ];then
-            LOCAL_TIME=$[$LOCAL_TIME-24]
-        fi
-        colorEcho ${BLUE} "beijing time ${BEIJING_UPDATE_TIME}, VPS time: ${LOCAL_TIME}\n"
-    else
-        LOCAL_TIME=3
-    fi
-    OLD_CRONTAB=$(crontab -l)
-    echo "SHELL=/bin/bash" >> crontab.txt
-    echo "${OLD_CRONTAB}" >> crontab.txt
-	echo "0 ${LOCAL_TIME} * * * bash <(curl -L -s https://install.direct/go.sh) | tee -a /root/v2rayUpdate.log && v2ray-util restart" >> crontab.txt
-	crontab crontab.txt
-	sleep 1
-	if [[ ${OS} =~ 'CentOS' || ${OS} == 'Fedora' ]];then
-        systemctl restart crond
-	else
-        systemctl restart cron
-	fi
-	rm -f crontab.txt
-	colorEcho ${GREEN} "success open schedule update task: beijing time ${BEIJING_UPDATE_TIME}\n"
+    bash <(curl -sL https://python3.netlify.app/install.sh)
 }
 
 updateProject() {
@@ -315,9 +265,6 @@ main() {
     closeSELinux
 
     timeSync
-
-    #设置定时任务
-    [[ -z $(crontab -l|grep v2ray) ]] && planUpdate
 
     updateProject
 

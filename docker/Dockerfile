@@ -8,7 +8,7 @@ LABEL maintainer "Jrohy <euvkzx@Jrohy.com>"
 
 ENV COMPLETION_FILE "/usr/share/bash-completion/completions/v2ray"
 
-ENV SOURCE_COMPLETION_FILE "https://multi.netlify.com/v2ray"
+ENV SOURCE_COMPLETION_FILE "https://multi.netlify.app/v2ray"
 
 ENV VERSION_LIST "https://api.github.com/repos/Jrohy/multi-v2ray/tags"
 
@@ -20,7 +20,7 @@ COPY run.sh /root
 
 WORKDIR /root
 
-RUN apk --no-cache add python3 bash bash-completion ca-certificates curl socat openssl iptables ip6tables lsof && \
+RUN apk --no-cache add python3 bash bash-completion ca-certificates curl socat openssl iptables ip6tables && \
     python3 -m ensurepip && \
     rm -r /usr/lib/python*/ensurepip && \
     pip3 install --upgrade pip setuptools && \
